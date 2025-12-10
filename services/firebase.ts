@@ -251,8 +251,18 @@ export const getAnnouncements = async (): Promise<Announcement[]> => {
   try {
     const q = query(collection(db, "announcements"), orderBy("date", "desc"));
     const snapshot = await getDocs(q);
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Announcement));
-    return data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    return snapshot.docs.map(doc => {
+        // Correctly handle the data object to avoid readonly issues
+        const data = doc.data();
+        // Create a shallow copy
+        const safeData = { ...data };
+        // Remove 'id' from data if it exists to avoid overwriting doc.id
+        if (safeData && typeof safeData === 'object' && 'id' in safeData) {
+            delete (safeData as any).id;
+        }
+        return { ...safeData, id: doc.id } as Announcement;
+    });
   } catch (error) {
     console.error("Error fetching announcements:", error);
     return [];
