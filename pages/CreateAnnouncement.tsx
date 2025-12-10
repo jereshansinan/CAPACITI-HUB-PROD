@@ -4,7 +4,7 @@ import { Announcement } from '../types';
 import { COHORTS } from '../services/mockDatabase';
 import { createAnnouncement, getAnnouncements, deleteAnnouncement } from '../services/firebase';
 import { searchUnsplashImages } from '../services/unsplashService';
-import { Megaphone, AlertCircle, Calendar, Info, Send, CheckCircle, Users, Image as ImageIcon, Search, Loader2, Trash2 } from 'lucide-react';
+import { Megaphone, AlertCircle, Calendar, Info, Send, CheckCircle, Users, Image as ImageIcon, Search, Loader2, Trash2, X } from 'lucide-react';
 
 const DEFAULT_ANNOUNCEMENT_IMAGE = "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=1000";
 
@@ -30,6 +30,10 @@ const CreateAnnouncement: React.FC = () => {
   // Real Data History
   const [history, setHistory] = useState<Announcement[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  
+  // Delete State
+  const [deletingId, setDeletingId] = useState<string | null>(null); // ID currently being deleted (spinner)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null); // ID waiting for confirmation
 
   const fetchHistory = async () => {
     setIsLoadingHistory(true);
@@ -98,19 +102,30 @@ const CreateAnnouncement: React.FC = () => {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-      // Stop propagation to prevent any parent click events
-      e.stopPropagation();
-      e.preventDefault();
+  const initiateDelete = (id: string) => {
+      setConfirmDeleteId(id);
+  };
+
+  const cancelDelete = () => {
+      setConfirmDeleteId(null);
+  };
+
+  const executeDelete = async (id: string) => {
+      setConfirmDeleteId(null);
+      setDeletingId(id);
       
-      if (window.confirm("Are you sure you want to delete this announcement? This action cannot be undone.")) {
-          const result = await deleteAnnouncement(id);
-          if (result.success) {
-              setHistory(prev => prev.filter(item => item.id !== id));
-          } else {
-              alert("Error deleting: " + result.error);
-          }
+      console.log("Executing delete for ID:", id);
+      const result = await deleteAnnouncement(id);
+      
+      if (result.success) {
+          console.log("Delete successful");
+          setHistory(prev => prev.filter(item => item.id !== id));
+      } else {
+          console.error("Delete failed:", result.error);
+          alert("Error deleting announcement: " + result.error);
+          fetchHistory(); // Refresh to be safe
       }
+      setDeletingId(null);
   };
 
   const getTypeStyles = (t: string) => {
@@ -358,18 +373,8 @@ const CreateAnnouncement: React.FC = () => {
              ) : (
                 <div className="space-y-4">
                   {history.map((item) => (
-                    <div key={item.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 group relative">
-                        {/* Delete Button */}
-                        <button 
-                            type="button"
-                            onClick={(e) => handleDelete(e, item.id)}
-                            className="absolute top-2 right-2 p-1.5 bg-white rounded-full text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20"
-                            title="Delete Announcement"
-                        >
-                            <Trash2 size={14} />
-                        </button>
-
-                        <div className="w-full h-24 mb-2 rounded-lg overflow-hidden bg-slate-200">
+                    <div key={item.id} className="p-3 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col group relative">
+                        <div className="w-full h-32 mb-3 rounded-md overflow-hidden bg-slate-100 relative">
                             <img 
                                 src={item.imageUrl || DEFAULT_ANNOUNCEMENT_IMAGE} 
                                 onError={(e) => {
@@ -379,20 +384,62 @@ const CreateAnnouncement: React.FC = () => {
                                 alt="cover" 
                                 className="w-full h-full object-cover" 
                             />
+                            <div className="absolute top-2 left-2">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border shadow-sm ${getTypeStyles(item.type)}`}>
+                                    {item.type}
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex justify-between items-start mb-1">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border ${getTypeStyles(item.type)}`}>
-                            {item.type}
-                          </span>
-                          <span className="text-xs text-slate-400">{item.date}</span>
-                        </div>
-                        <h4 className="font-medium text-slate-800 text-sm mt-2 pr-6">{item.title}</h4>
+                        
+                        <h4 className="font-bold text-slate-900 text-sm mb-1 line-clamp-1">{item.title}</h4>
+                        
                         {item.targetCohortId && item.targetCohortId !== 'All' && (
-                            <div className="text-[10px] bg-slate-200 text-slate-600 inline-block px-1.5 py-0.5 rounded mt-1">
+                            <div className="text-[10px] bg-indigo-50 text-indigo-700 inline-block px-1.5 py-0.5 rounded w-fit mb-2">
                                 To: {item.targetCohortName || 'Cohort'}
                             </div>
                         )}
-                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{item.content}</p>
+                        
+                        <p className="text-xs text-slate-500 line-clamp-2 mb-3 flex-1">{item.content}</p>
+
+                        <div className="pt-2 border-t border-slate-100 flex justify-between items-center mt-auto">
+                            <span className="text-xs text-slate-400">{item.date}</span>
+                            
+                            {confirmDeleteId === item.id ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold text-red-600">Sure?</span>
+                                    <button 
+                                        type="button"
+                                        onClick={() => executeDelete(item.id)}
+                                        className="bg-red-600 text-white p-1.5 rounded hover:bg-red-700 transition-colors shadow-sm"
+                                        title="Yes, delete it"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={cancelDelete}
+                                        className="bg-slate-200 text-slate-600 p-1.5 rounded hover:bg-slate-300 transition-colors"
+                                        title="Cancel"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <button 
+                                    type="button"
+                                    onClick={() => initiateDelete(item.id)}
+                                    disabled={deletingId === item.id}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                                        deletingId === item.id 
+                                        ? 'bg-red-100 text-red-800 border-red-200 opacity-70 cursor-not-allowed'
+                                        : 'text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 border-red-100'
+                                    }`}
+                                >
+                                    {deletingId === item.id ? <Loader2 size={12} className="animate-spin"/> : <Trash2 size={12} />}
+                                    <span>{deletingId === item.id ? 'Deleting...' : 'Delete'}</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
                   ))}
                   {history.length === 0 && (
