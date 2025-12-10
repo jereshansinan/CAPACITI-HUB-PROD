@@ -59,8 +59,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         // Login Successful - Pass full user object
         onLogin(result.user);
     } else {
-        // Login Failed
-        setErrorMsg(result.error || "Authentication failed");
+        // Login Failed - Map raw errors to friendly messages
+        let displayError = result.error || "Authentication failed";
+        
+        if (displayError.includes("auth/invalid-credential") || 
+            displayError.includes("auth/user-not-found") || 
+            displayError.includes("auth/wrong-password")) {
+            displayError = "Invalid email or password. Please check your credentials.";
+        } else if (displayError.includes("auth/too-many-requests")) {
+            displayError = "Too many failed attempts. Please try again later.";
+        } else if (displayError.includes("auth/network-request-failed")) {
+            displayError = "Network error. Please check your internet connection.";
+        }
+
+        setErrorMsg(displayError);
     }
 
     setIsLoading(false);
