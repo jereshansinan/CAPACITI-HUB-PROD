@@ -1,13 +1,15 @@
+
 import React, { useState, useMemo } from 'react';
 import { USERS, COHORTS } from '../services/mockDatabase';
-import { Search, Mail, Phone, MapPin, Briefcase, Filter, MessageSquare, ExternalLink, BadgeCheck, X, Users as UsersIcon } from 'lucide-react';
-import { Role } from '../types';
+import { Search, Mail, Phone, MapPin, Briefcase, Filter, MessageSquare, ExternalLink, BadgeCheck, X, Users as UsersIcon, User } from 'lucide-react';
+import { Role, User as UserType } from '../types';
 
 const Directory: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedRole, setSelectedRole] = useState('All');
   const [selectedCohort, setSelectedCohort] = useState('All');
+  const [viewProfile, setViewProfile] = useState<UserType | null>(null);
 
   // Extract unique departments
   const departments = useMemo(() => {
@@ -200,16 +202,22 @@ const Directory: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3 px-2">
                       <MapPin size={16} className="text-slate-400 shrink-0" />
-                      <span>Cape Town Campus</span>
+                      <span>{user.location || 'Cape Town Campus'}</span>
                     </div>
                   </div>
 
                   {/* Card Actions */}
                   <div className="mt-auto pt-4 border-t border-slate-100 flex gap-2">
-                      <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-800 text-white text-xs font-medium hover:bg-slate-900 transition-colors shadow-sm">
+                      <a 
+                        href={`mailto:${user.email}`}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-slate-800 text-white text-xs font-medium hover:bg-slate-900 transition-colors shadow-sm"
+                      >
                           <MessageSquare size={14} /> Message
-                      </button>
-                      <button className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 transition-colors border border-slate-200">
+                      </a>
+                      <button 
+                        onClick={() => setViewProfile(user)}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-white text-slate-700 text-xs font-medium hover:bg-slate-50 transition-colors border border-slate-200"
+                      >
                           <ExternalLink size={14} /> Profile
                       </button>
                   </div>
@@ -235,6 +243,75 @@ const Directory: React.FC = () => {
                 <X size={18} />
                 Clear all filters
             </button>
+        </div>
+      )}
+
+      {/* PROFILE POPUP MODAL */}
+      {viewProfile && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-50 p-4 animate-in fade-in">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className={`h-24 bg-gradient-to-r ${getBannerColor(viewProfile.role)} relative`}>
+                    <button 
+                        onClick={() => setViewProfile(null)}
+                        className="absolute top-2 right-2 text-white/80 hover:text-white bg-black/10 hover:bg-black/20 rounded-full p-1 transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="px-6 pb-6 text-center -mt-10">
+                    <div className="w-20 h-20 rounded-full border-4 border-white bg-white mx-auto shadow-md overflow-hidden flex items-center justify-center">
+                        {viewProfile.avatar ? (
+                            <img src={viewProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
+                                <User size={32} />
+                            </div>
+                        )}
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 mt-3">{viewProfile.name}</h3>
+                    <p className="text-sm text-slate-500 mb-4">{viewProfile.role}</p>
+
+                    <div className="space-y-3 text-sm text-left bg-slate-50 p-4 rounded-xl border border-slate-100">
+                         <div className="flex items-center gap-3 text-slate-700">
+                             <Mail size={16} className="text-slate-400 shrink-0" />
+                             <a href={`mailto:${viewProfile.email}`} className="truncate hover:text-blue-600 underline-offset-2 hover:underline">
+                                {viewProfile.email}
+                             </a>
+                         </div>
+                         <div className="flex items-center gap-3 text-slate-700">
+                             <Phone size={16} className="text-slate-400 shrink-0" />
+                             <span>{viewProfile.phone || 'N/A'}</span>
+                         </div>
+                         <div className="flex items-center gap-3 text-slate-700">
+                             <Briefcase size={16} className="text-slate-400 shrink-0" />
+                             <span>{viewProfile.department || 'General'}</span>
+                         </div>
+                         <div className="flex items-center gap-3 text-slate-700">
+                             <MapPin size={16} className="text-slate-400 shrink-0" />
+                             <span>{viewProfile.location || 'Cape Town Campus'}</span>
+                         </div>
+                         <div className="flex items-center gap-3 text-slate-700">
+                             <div className={`w-4 h-4 rounded-full flex items-center justify-center ${viewProfile.status === 'Active' ? 'bg-green-100' : 'bg-slate-200'}`}>
+                                 <div className={`w-2 h-2 rounded-full ${viewProfile.status === 'Active' ? 'bg-green-500' : 'bg-slate-400'}`}></div>
+                             </div>
+                             <span>{viewProfile.status || 'Active'}</span>
+                         </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-slate-100">
+                       <p className="text-xs text-slate-500 italic text-left">
+                         "{viewProfile.bio || 'No bio available.'}"
+                       </p>
+                    </div>
+
+                    <button 
+                        onClick={() => setViewProfile(null)}
+                        className="mt-6 w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
         </div>
       )}
     </div>
